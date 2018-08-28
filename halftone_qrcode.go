@@ -34,6 +34,7 @@ type HalftoneQRCode struct {
 
 	mask          int
 	MaskImagePath string
+	MaskImage     image.Image
 
 	MaskRectangle image.Rectangle
 
@@ -141,16 +142,20 @@ func (q *HalftoneQRCode) Image(pointWidth int) image.Image {
 // openMaskImage return the maskImage object if maskPath  is present.
 // Besides if maskPath is blank, no error returned.
 func (q *HalftoneQRCode) openMaskImage(bounds image.Rectangle) (sourceMaskImage image.Image, maskImage image.Image, err error) {
-	if q.MaskImagePath == "" {
-		return
+	if q.MaskImage == nil {
+		if q.MaskImagePath == "" {
+			return
+		}
+		var f *os.File
+		f, err = os.Open(q.MaskImagePath)
+		if err != nil {
+			return
+		}
+		defer f.Close()
+		sourceMaskImage, _, err = image.Decode(f)
+	} else {
+		sourceMaskImage = q.MaskImage
 	}
-	var f *os.File
-	f, err = os.Open(q.MaskImagePath)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-	sourceMaskImage, _, err = image.Decode(f)
 	maskImage = imaging.Clone(sourceMaskImage)
 
 	if err != nil {
