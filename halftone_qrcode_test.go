@@ -55,6 +55,23 @@ func TestHalftoneQRCodeMaxCapacity(t *testing.T) {
 	}
 }
 
+func TestHalftoneQRCode_AddOption(t *testing.T) {
+	hcode, _ := NewHalftoneCode("test", Low)
+	hcode.AddOption(Option{MaskImagePath: "test.png"})
+	if hcode.option.MaskImagePath != "test.png" {
+		t.Errorf("set MaskImagePath to test.png but result is %s", hcode.option.MaskImagePath)
+	}
+}
+
+func TestHalftoneQRCode_RemoveOption(t *testing.T) {
+	hcode, _ := NewHalftoneCode("test", Low)
+	hcode.option = &Option{MaskImagePath: "test.png"}
+	hcode.RemoveOption(MaskImagePathOpt)
+	if hcode.option.MaskImagePath != "" {
+		t.Errorf("remove MaskImagePath(before: %s) but result is %s(after)", "test.png", hcode.option.MaskImagePath)
+	}
+}
+
 func TestHalftoneQRCodeVersionCapacity(t *testing.T) {
 	tests := []struct {
 		version         int

@@ -3,7 +3,6 @@ package qart
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"github.com/disintegration/imaging"
 	"github.com/xrlin/qart/bitset"
 	"github.com/xrlin/qart/reedsolomon"
@@ -12,19 +11,23 @@ import (
 	"image/png"
 	"log"
 	"os"
+	"image/gif"
+	"image/draw"
+	"io"
+	"reflect"
+	"io/ioutil"
 )
 
+// HalftoneQRCode specify the basic qrcode and another options to generate a qrcode with image
 type HalftoneQRCode struct {
 	// Original content encoded.
 	Content string
 
 	// QR Code type.
 	Level         RecoveryLevel
-	VersionNumber int
 
-	// User settable drawing options.
-	ForegroundColor color.Color
-	BackgroundColor color.Color
+	// QR Code version number
+	VersionNumber int
 
 	encoder *dataEncoder
 	version qrCodeVersion
@@ -32,29 +35,195 @@ type HalftoneQRCode struct {
 	data   *bitset.Bitset
 	symbol *HalftoneSymbol
 
-	mask          int
+	mask int
+
+	option *Option
+}
+
+// Option struct contains the option to build code
+type Option struct {
+	// User settable drawing options.
+	ForegroundColor color.Color
+	BackgroundColor color.Color
+
 	MaskImagePath string
-	MaskImage     image.Image
+	MaskImageFile io.Reader
 
 	MaskRectangle image.Rectangle
 
 	Embed bool
 }
 
-// Image returns the QR Code as an image.Image.
-//
-// A positive size sets a fixed image width and height (e.g. 256 yields an
-// 256x256px image).
-//
-// Depending on the amount of data encoded, fixed size images can have different
-// amounts of padding (white space around the QR Code). As an alternative, a
-// variable sized image can be generated instead:
-//
-// A negative size causes a variable sized image to be returned. The image
-// returned is the minimum size required for the QR Code. Choose a larger
-// negative number to increase the scale of the image. e.g. a size of -5 causes
-// each module (QR Code "pixel") to be 5px in size.
-func (q *HalftoneQRCode) Image(pointWidth int) image.Image {
+// OptionKey act as the key of Option struct
+type OptionKey string
+
+const (
+	ForegroundColorOpt OptionKey = "ForegroundColor"
+	BackgroundColorOpt OptionKey = "BackgroundColor"
+	MaskImagePathOpt   OptionKey = "MaskImagePath"
+	MaskImageFileOpt   OptionKey = "MaskImageFile"
+	MaskRectangleOpt   OptionKey = "MaskRectangle"
+	EmbedOpt           OptionKey = "Embed"
+)
+
+// AddOption add Option to a HalftoneQRCode.
+// Attention: only the none-zero field will be merged into HalftoneQRCode's option.
+// If you want to delete an option, use RemoveOption method.
+func (q *HalftoneQRCode) AddOption(cfg Option) *HalftoneQRCode {
+	preValue := reflect.ValueOf(q.option).Elem()
+	values := reflect.ValueOf(cfg)
+	for i := 0; i < values.NumField(); i++ {
+		if values.Field(i).Interface() != reflect.Zero(values.Field(i).Type()).Interface() {
+			preValue.Field(i).Set(values.Field(i))
+		}
+	}
+	return q
+}
+
+// Option method returns the pointer point to option.
+func (q HalftoneQRCode) Option() *Option {
+	return q.option
+}
+
+// RemoveOption method set the option field's value to its zero value.
+func (q *HalftoneQRCode) RemoveOption(opt OptionKey) *HalftoneQRCode {
+	preValue := reflect.ValueOf(q.option).Elem()
+	field := preValue.FieldByName(string(opt))
+	field.Set(reflect.Zero(field.Type()))
+	return q
+}
+
+// getMaskImageFile method try to get the image file used to generate code.
+// you should check return value before using.
+func (q *HalftoneQRCode) getMaskImageFile() (f io.Reader, err error) {
+	if q.option.MaskImageFile == nil && q.option.MaskImagePath == "" {
+		return nil, nil
+	}
+	if q.option.MaskImageFile != nil {
+		f = q.option.MaskImageFile
+		b, _ := ioutil.ReadAll(q.option.MaskImageFile)
+		q.AddOption(Option{MaskImageFile: bytes.NewBuffer(b)})
+		f = bytes.NewBuffer(b)
+		return
+	}
+	f, err = os.Open(q.option.MaskImagePath)
+	return
+}
+
+// ImageData generate code and return the bytes represents the cod image(png/gif).
+// pointWidth parameter set the width of a qr code module.
+func (q *HalftoneQRCode) ImageData(pointWidth int) (ret []byte, err error) {
+	fileObj, err := q.getMaskImageFile()
+	if err != nil {
+		return
+	}
+
+	var format string
+	if fileObj != nil {
+		_, format, _ = image.DecodeConfig(fileObj)
+	}
+	var buf bytes.Buffer
+	if format == "gif" {
+		var gifCode *gif.GIF
+		gifCode, err = q.CodeGif(pointWidth)
+		if err != nil {
+			return
+		}
+		err = gif.EncodeAll(&buf, gifCode)
+		ret = buf.Bytes()
+		return
+	}
+	imgCode, err := q.CodeImage(pointWidth)
+	if err != nil {
+		return
+	}
+	encoder := png.Encoder{CompressionLevel: png.BestCompression}
+
+	err = encoder.Encode(&buf, imgCode)
+	ret = buf.Bytes()
+	return
+}
+
+func (q *HalftoneQRCode) readAsGif(f io.Reader) (maskGif *gif.GIF, err error) {
+	maskGif, err = gif.DecodeAll(f)
+	return
+}
+
+func (q *HalftoneQRCode) readAsImage(f io.Reader) (maskImage image.Image, err error) {
+	maskImage, _, err = image.Decode(f)
+	return
+}
+
+// CodeImage generate the code as a normal image.
+// pointWidth parameter set the width of a qr code module.
+func (q *HalftoneQRCode) CodeImage(pointWidth int) (ret image.Image, err error) {
+	fileObj, err := q.getMaskImageFile()
+	if err != nil {
+		return
+	}
+
+	var srcImg image.Image
+	if fileObj != nil {
+		srcImg, err = q.readAsImage(fileObj)
+		if err != nil {
+			return
+		}
+	}
+
+	ret, err = q.drawCodeWithImage(pointWidth, srcImg)
+	return
+}
+
+// CodeGif generates the code as a gif.
+// pointWidth parameter set the width of a qr code module.
+func (q *HalftoneQRCode) CodeGif(pointWidth int) (ret *gif.GIF, err error) {
+	fileObj, err := q.getMaskImageFile()
+	if err != nil {
+		return
+	}
+
+	maskGif, err := q.readAsGif(fileObj)
+	if err != nil {
+		return
+	}
+
+	for idx, img := range maskGif.Image {
+		img1, err := q.drawCodeWithImage(3, img)
+		if err != nil {
+			return ret, err
+		}
+		palettedImage := image.NewPaletted(img1.Bounds(), img.Palette)
+		draw.Draw(palettedImage, palettedImage.Rect, img1, img1.Bounds().Min, draw.Over)
+		maskGif.Image[idx] = palettedImage
+		maskGif.Config.Height = img1.Bounds().Size().Y
+		maskGif.Config.Width = img1.Bounds().Size().X
+	}
+	ret = maskGif
+	return
+}
+
+// getMaskAreaImage analyzes the options and construct the proper mask image combined with qr code
+func (q *HalftoneQRCode) getMaskAreaImage(sourceImage image.Image, bounds image.Rectangle) (maskImage image.Image, err error) {
+	if sourceImage == nil {
+		return nil, nil
+	}
+	maskImage = imaging.Clone(sourceImage)
+	if q.option.Embed && !bounds.In(maskImage.Bounds()) {
+		err = errors.New("when in embed mode, mask image must not smaller than the cmd")
+		return
+	}
+	if !q.option.MaskRectangle.Empty() {
+		if !q.option.MaskRectangle.In(maskImage.Bounds()) {
+			err = errors.New("sub mask image area must in the mask image")
+			return
+		}
+		maskImage = imaging.Crop(maskImage, q.option.MaskRectangle)
+	}
+	maskImage = imaging.Resize(maskImage, bounds.Max.X, bounds.Max.Y, imaging.Lanczos)
+	return
+}
+
+func (q *HalftoneQRCode) drawCodeWithImage(pointWidth int, sourceImage image.Image) (image.Image, error) {
 	// Minimum pixels (both width and height) required.
 	realSize := q.symbol.size
 
@@ -69,7 +238,6 @@ func (q *HalftoneQRCode) Image(pointWidth int) image.Image {
 	// Size of each module drawn.
 	widthPerModule := size / realSize
 	maskBlockWidth := pointWidth
-
 	offset := 0
 
 	// Init image
@@ -77,14 +245,13 @@ func (q *HalftoneQRCode) Image(pointWidth int) image.Image {
 	img := image.NewRGBA(rect)
 	for i := 0; i < size; i++ {
 		for j := 0; j < size; j++ {
-			img.Set(i, j, q.BackgroundColor)
+			img.Set(i, j, q.option.BackgroundColor)
 		}
 	}
 
-	srcMaskImage, maskImage, err := q.openMaskImage(img.Bounds())
+	maskAreaImage, err := q.getMaskAreaImage(sourceImage, rect)
 	if err != nil {
-		fmt.Println(err)
-		return nil
+		return nil, err
 	}
 
 	bitmap := q.symbol.bitmap()
@@ -113,16 +280,16 @@ func (q *HalftoneQRCode) Image(pointWidth int) image.Image {
 						pixelY = j
 						for ity := 0; ity <= maskBlockWidth; ity++ {
 							pixelY += 1
-							if maskImage != nil && (q.isDataModule(x, y) || !q.symbol.isUsed[y][x]) {
+							if maskAreaImage != nil && (q.isDataModule(x, y) || !q.symbol.isUsed[y][x]) {
 								if !(countX == 1 && countY == 1) {
-									img.Set(pixelX, pixelY, maskImage.At(pixelX, pixelY))
+									img.Set(pixelX, pixelY, maskAreaImage.At(pixelX, pixelY))
 									continue
 								}
 							}
 							if v {
-								img.Set(pixelX, pixelY, q.ForegroundColor)
+								img.Set(pixelX, pixelY, q.option.ForegroundColor)
 							} else if q.symbol.isUsed[y][x] {
-								img.Set(pixelX, pixelY, q.BackgroundColor)
+								img.Set(pixelX, pixelY, q.option.BackgroundColor)
 							}
 						}
 					}
@@ -133,52 +300,16 @@ func (q *HalftoneQRCode) Image(pointWidth int) image.Image {
 
 		}
 	}
-	if q.Embed {
-		return q.embedCode(srcMaskImage, img)
+	if q.option.Embed {
+		return q.embedCode(sourceImage, img), nil
 	}
-	return img
+	return img, nil
 }
 
-// openMaskImage return the maskImage object if maskPath  is present.
-// Besides if maskPath is blank, no error returned.
-func (q *HalftoneQRCode) openMaskImage(bounds image.Rectangle) (sourceMaskImage image.Image, maskImage image.Image, err error) {
-	if q.MaskImage == nil {
-		if q.MaskImagePath == "" {
-			return
-		}
-		var f *os.File
-		f, err = os.Open(q.MaskImagePath)
-		if err != nil {
-			return
-		}
-		defer f.Close()
-		sourceMaskImage, _, err = image.Decode(f)
-	} else {
-		sourceMaskImage = q.MaskImage
-	}
-	maskImage = imaging.Clone(sourceMaskImage)
-
-	if err != nil {
-		return
-	}
-	if q.Embed && !bounds.In(maskImage.Bounds()) {
-		err = errors.New("when in embed mode, mask image must not smaller than the cmd")
-		return
-	}
-	if !q.MaskRectangle.Empty() {
-		if !q.MaskRectangle.In(maskImage.Bounds()) {
-			err = errors.New("sub mask image area must in the mask image")
-			return
-		}
-		maskImage = imaging.Crop(maskImage, q.MaskRectangle)
-	}
-	maskImage = imaging.Resize(maskImage, bounds.Max.X, bounds.Max.Y, imaging.Lanczos)
-	return
-}
-
+// embedCode overlay the code on image
 func (q *HalftoneQRCode) embedCode(dst image.Image, src image.Image) image.Image {
-	codeImage := imaging.Resize(src, q.MaskRectangle.Size().X, q.MaskRectangle.Size().Y, imaging.Lanczos)
-	return imaging.Overlay(dst, codeImage, q.MaskRectangle.Min, 1)
+	codeImage := imaging.Resize(src, q.option.MaskRectangle.Size().X, q.option.MaskRectangle.Size().Y, imaging.Lanczos)
+	return imaging.Overlay(dst, codeImage, q.option.MaskRectangle.Min, 1)
 }
 
 func (q *HalftoneQRCode) isDataModule(x, y int) bool {
@@ -187,8 +318,8 @@ func (q *HalftoneQRCode) isDataModule(x, y int) bool {
 
 // New constructs a QRCode.
 //
-//	var q *cmd.QRCode
-//	q, err := cmd.New("my content", cmd.Medium)
+//	var q *cmd.HalftoneQRCode
+//	q, err := cmd.NewHalftoneCode("my content", cmd.Medium)
 //
 // An error occurs if the content is too long.
 func NewHalftoneCode(content string, level RecoveryLevel) (*HalftoneQRCode, error) {
@@ -226,9 +357,10 @@ func NewHalftoneCode(content string, level RecoveryLevel) (*HalftoneQRCode, erro
 
 		Level:         level,
 		VersionNumber: chosenVersion.version,
-
-		ForegroundColor: color.Black,
-		BackgroundColor: color.White,
+		option: &Option{
+			ForegroundColor: color.Black,
+			BackgroundColor: color.White,
+		},
 
 		encoder: encoder,
 		data:    encoded,
@@ -391,12 +523,13 @@ func (q *HalftoneQRCode) encodeBlocks() *bitset.Bitset {
 }
 
 // ToString produces a multi-line string that forms a QR-code image.
-func (q *HalftoneQRCode) ToString(inverseColor bool) string {
+// This method return the pure qrcode without mask image.
+func (q *HalftoneQRCode) ToString() string {
 	bits := q.Bitmap()
 	var buf bytes.Buffer
 	for y := range bits {
 		for x := range bits[y] {
-			if bits[y][x] != inverseColor {
+			if bits[y][x] {
 				buf.WriteString("  ")
 			} else {
 				buf.WriteString("██")
@@ -405,26 +538,6 @@ func (q *HalftoneQRCode) ToString(inverseColor bool) string {
 		buf.WriteString("\n")
 	}
 	return buf.String()
-}
-
-// PNG returns the QR Code as a PNG image.
-//
-// size is both the image width and height in pixels. If size is too small then
-// a larger image is silently returned. Negative values for size cause a
-// variable sized image to be returned: See the documentation for Image().
-func (q *HalftoneQRCode) PNG(size int) ([]byte, error) {
-	img := q.Image(size)
-
-	encoder := png.Encoder{CompressionLevel: png.BestCompression}
-
-	var b bytes.Buffer
-	err := encoder.Encode(&b, img)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return b.Bytes(), nil
 }
 
 // Bitmap returns the QR Code as a 2D array of 1-bit pixels.
