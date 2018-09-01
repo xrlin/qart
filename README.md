@@ -53,9 +53,11 @@ Read the godoc for more usage.
 
 ## Examples
 
+<p>
 <img alt="example" src="https://raw.githubusercontent.com/xrlin/qart/master/screenshots/example1.png" width="200px"/>
 <img alt="example" src="https://raw.githubusercontent.com/xrlin/qart/master/screenshots/example2.png" width="200px"/>
 <img alt="example" src="https://raw.githubusercontent.com/xrlin/qart/master/screenshots/example3.gif" width="200px"/>
+</p>
 <img alt="example" src="https://raw.githubusercontent.com/xrlin/qart/master/screenshots/example4.gif" width="300px"/>
 
 ## Links
