@@ -96,9 +96,8 @@ func TestVersionInfo(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		var v *qrCodeVersion
 
-		v = getQRCodeVersion(Low, test.version)
+		v := getQRCodeVersion(Low, test.version)
 
 		result := v.versionInfo()
 
@@ -144,9 +143,8 @@ func TestNumBitsToPadToCodeoword(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		var v *qrCodeVersion
 
-		v = getQRCodeVersion(test.level, test.version)
+		v := getQRCodeVersion(test.level, test.version)
 
 		result := v.numBitsToPadToCodeword(test.numDataBits)
 

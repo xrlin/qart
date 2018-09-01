@@ -58,11 +58,17 @@ type Option struct {
 type OptionKey string
 
 const (
+	// Field name of ForegroundColor in Option
 	ForegroundColorOpt OptionKey = "ForegroundColor"
+	// Field name of BackgroundColor in Option
 	BackgroundColorOpt OptionKey = "BackgroundColor"
+	// Field name of MaskImagePath in Option
 	MaskImagePathOpt   OptionKey = "MaskImagePath"
+	// Field name of MaskImageFile in Option
 	MaskImageFileOpt   OptionKey = "MaskImageFile"
+	// Field name of MaskRectangle in Option
 	MaskRectangleOpt   OptionKey = "MaskRectangle"
+	// Field name of Embed in Option
 	EmbedOpt           OptionKey = "Embed"
 )
 
@@ -100,7 +106,6 @@ func (q *HalftoneQRCode) getMaskImageFile() (f io.Reader, err error) {
 		return nil, nil
 	}
 	if q.option.MaskImageFile != nil {
-		f = q.option.MaskImageFile
 		b, _ := ioutil.ReadAll(q.option.MaskImageFile)
 		q.AddOption(Option{MaskImageFile: bytes.NewBuffer(b)})
 		f = bytes.NewBuffer(b)
@@ -276,10 +281,10 @@ func (q *HalftoneQRCode) drawCodeWithImage(pointWidth int, sourceImage image.Ima
 					pixelX := i
 					pixelY := j
 					for itx := 0; itx <= maskBlockWidth; itx++ {
-						pixelX += 1
+						pixelX++
 						pixelY = j
 						for ity := 0; ity <= maskBlockWidth; ity++ {
-							pixelY += 1
+							pixelY++
 							if maskAreaImage != nil && (q.isDataModule(x, y) || !q.symbol.isUsed[y][x]) {
 								if !(countX == 1 && countY == 1) {
 									img.Set(pixelX, pixelY, maskAreaImage.At(pixelX, pixelY))
@@ -316,7 +321,7 @@ func (q *HalftoneQRCode) isDataModule(x, y int) bool {
 	return q.symbol.dataModule[y][x]
 }
 
-// New constructs a QRCode.
+// NewHalftoneCode constructs a basic QRCode.
 //
 //	var q *cmd.HalftoneQRCode
 //	q, err := cmd.NewHalftoneCode("my content", cmd.Medium)

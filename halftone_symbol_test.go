@@ -20,7 +20,7 @@ func TestSymbolBasic(t *testing.T) {
 
 			v := m.get(i, j)
 
-			if v != false {
+			if v {
 				t.Errorf("New symbol not empty")
 			}
 
