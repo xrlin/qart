@@ -7,7 +7,7 @@ Package qart implements a QR Code encoder, basing on [go-qrcode](https://github.
 
 ## Install
 
-    go get -u github.com/xrlin/qart
+    go get -u github.com/xrlin/qart/...
 
 A command-line tool `qart` will be built into `$GOPATH/bin/`.
 
