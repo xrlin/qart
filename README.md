@@ -1,80 +1,65 @@
-# go-qrcode #
+# Qart #
 
-<img src='https://skip.org/img/nyancat-youtube-qr.png' align='right'>
+[![Build Status](https://travis-ci.org/xrlin/qart.svg?branch=master)](https://travis-ci.org/xrlin/qart)
+[![godoc](https://camo.githubusercontent.com/4953dcce3ef06016a8f872b20e3bf6cd65e99621/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f676f646f632d7265666572656e63652d3532373242342e737667)](https://godoc.org/github.com/xrlin/qart)
 
-Package qrcode implements a QR Code encoder. [![Build Status](https://travis-ci.org/skip2/go-qrcode.svg?branch=master)](https://travis-ci.org/skip2/go-qrcode)
-
-A QR Code is a matrix (two-dimensional) barcode. Arbitrary content may be encoded, with URLs being a popular choice :)
-
-Each QR Code contains error recovery information to aid reading damaged or obscured codes. There are four levels of error recovery: Low, medium, high and highest. QR Codes with a higher recovery level are more robust to damage, at the cost of being physically larger.
+Package qart implements a QR Code encoder, basing on [go-qrcode](https://github.com/skip2/go-qrcode), with other funny features.
 
 ## Install
 
-    go get -u github.com/skip2/go-qrcode/...
+    go get -u github.com/xrlin/qart
 
-A command-line tool `qrcode` will be built into `$GOPATH/bin/`.
-
-## Usage
-
-    import qrcode "github.com/skip2/go-qrcode"
-
-- **Create a PNG image:**
-
-        var png []byte
-        png, err := qrcode.Encode("https://example.org", qrcode.Medium, 256)
-
-- **Create a PNG image and write to a file:**
-
-        err := qrcode.WriteFile("https://example.org", qrcode.Medium, 256, "qr.png")
-
-- **Create a PNG image with custom colors and write to file:**
-
-        err := qrcode.WriteColorFile("https://example.org", qrcode.Medium, 256, color.Black, color.White, "qr.png")
-
-All examples use the qrcode.Medium error Recovery Level and create a fixed
-256x256px size QR Code. The last function creates a white on black instead of black
-on white QR Code.
-
-The maximum capacity of a QR Code varies according to the content encoded and
-the error recovery level. The maximum capacity is 2,953 bytes, 4,296
-alphanumeric characters, 7,089 numeric digits, or a combination of these.
-
-## Documentation
-
-[![godoc](https://godoc.org/github.com/skip2/go-qrcode?status.png)](https://godoc.org/github.com/skip2/go-qrcode)
-
-## Demoapp
-
-[http://go-qrcode.appspot.com](http://go-qrcode.appspot.com)
+A command-line tool `qart` will be built into `$GOPATH/bin/`.
 
 ## CLI
 
-A command-line tool `qrcode` will be built into `$GOPATH/bin/`.
+```bash
+# create code with png
+qart -m test.png -o out.png http://example.com
 
+# create code with specified area of png
+qart -m test.png -startX 100 -startY 100 -width 100 -oout.png http://example.com
+
+# overlay code on source image
+qart -m test.png -startX 100 -startY 100 -width 100 -embed true -o out.gif http://example.com
+
+# create code with gif
+qart -m illya.gif -o out.png http://example.com
 ```
-qrcode -- QR Code encoder in Go
-https://github.com/skip2/go-qrcode
+More options can found by
 
-Flags:
-  -o string
-        out PNG file prefix, empty for stdout
-  -s int
-        image size (pixel) (default 256)
-
-Usage:
-  1. Arguments except for flags are joined by " " and used to generate QR code.
-     Default output is STDOUT, pipe to imagemagick command "display" to display
-     on any X server.
-
-       qrcode hello word | display
-
-  2. Save to file if "display" not available:
-
-       qrcode "homepage: https://github.com/skip2/go-qrcode" > out.png
+```bash
+qart -h
 ```
+
+## Usage
+    ```go
+    import "github.com/xrlin/qart"
+
+    q, err = qrcode.NewHalftoneCode(content, qrcode.Highest)
+    q.AddOption(qart.Option{Embed: false, MaskImagePath: "test.png"})
+    pointWidth := 3
+    // Get the image.Image represents the qr code
+    ret := q.CodeImage(pointWidth)
+
+    // Get the bytes of image
+    imgBytes := q.ImageData(pointWidth)
+    ```
+Read the godoc for more usage.
+
+## Demoapp
+
+[https://qart.futureai.me](https://qart.futureai.me)
+
+## Examples
+
+![example](https://raw.githubusercontent.com/xrlin/qart/master/screenshots/example1.png)
+![example](https://raw.githubusercontent.com/xrlin/qart/master/screenshots/example2.png)
+![example](https://raw.githubusercontent.com/xrlin/qart/master/screenshots/example3.gif)
+![example](https://raw.githubusercontent.com/xrlin/qart/master/screenshots/example4.gif)
 
 ## Links
 
-- [http://en.wikipedia.org/wiki/QR_code](http://en.wikipedia.org/wiki/QR_code)
-- [ISO/IEC 18004:2006](http://www.iso.org/iso/catalogue_detail.htm?csnumber=43655) - Main QR Code specification (approx CHF 198,00)<br>
-- [https://github.com/qpliu/qrencode-go/](https://github.com/qpliu/qrencode-go/) - alternative Go QR encoding library based on [ZXing](https://github.com/zxing/zxing)
+- [go-qrcode](https://github.com/skip2/go-qrcode) :sparkles:
+- [pyqart](https://github.com/7sDream/pyqart) :clap:
+- [Paper](http://vecg.cs.ucl.ac.uk/Projects/SmartGeometry/halftone_QR/halftoneQR_sigga13.html)

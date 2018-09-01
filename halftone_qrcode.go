@@ -193,7 +193,7 @@ func (q *HalftoneQRCode) CodeGif(pointWidth int) (ret *gif.GIF, err error) {
 	}
 
 	for idx, img := range maskGif.Image {
-		img1, err := q.drawCodeWithImage(3, img)
+		img1, err := q.drawCodeWithImage(pointWidth, img)
 		if err != nil {
 			return ret, err
 		}
@@ -213,7 +213,7 @@ func (q *HalftoneQRCode) getMaskAreaImage(sourceImage image.Image, bounds image.
 		return nil, nil
 	}
 	maskImage = imaging.Clone(sourceImage)
-	if q.option.Embed && !bounds.In(maskImage.Bounds()) {
+	if q.option.Embed && !q.option.MaskRectangle.In(maskImage.Bounds()) {
 		err = errors.New("when in embed mode, mask image must not smaller than the cmd")
 		return
 	}

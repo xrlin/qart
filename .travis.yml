@@ -31,11 +31,9 @@ notifications:
 # set -e enabled in bash.
 before_script:
 - GO_FILES=$(find . -iname '*.go' -type f | grep -v /vendor/) # All the .go files, excluding vendor/
-- go get github.com/golang/lint/golint                        # Linter
 
 # script always run to completion (set +e). All of these code checks are must haves
 # in a modern Go project.
 script:
 - go test -race -coverprofile=coverage.txt -covermode=atomic
 - go vet ./...                             # go vet is the official Go static analyzer
-- golint -set_exit_status $(go list ./...) # one last linter
