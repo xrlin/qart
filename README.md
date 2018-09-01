@@ -52,7 +52,7 @@ Read the godoc for more usages.
 
 ## DemoApp
 
-[https://xrlin.github.io/qart-web](https://xrlin.github.io/qart-web
+[https://xrlin.github.io/qart-web](https://xrlin.github.io/qart-web)
 ## Examples
 
 <p>
