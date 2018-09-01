@@ -37,14 +37,14 @@ qart -h
 ```go
 import "github.com/xrlin/qart"
 
-q, err = qrcode.NewHalftoneCode(content, qrcode.Highest)
+q, err := qrcode.NewHalftoneCode(content, qrcode.Highest)
 q.AddOption(qart.Option{Embed: false, MaskImagePath: "test.png"})
 pointWidth := 3
 // Get the image.Image represents the qr code
 ret := q.CodeImage(pointWidth)
 
 // Get the bytes of image
-imgBytes := q.ImageData(pointWidth)
+imgBytes, err := q.ImageData(pointWidth)
 
 ```
 
