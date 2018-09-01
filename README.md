@@ -47,7 +47,7 @@ qart -h
     ```
 Read the godoc for more usage.
 
-## Demoapp
+## DemoApp
 
 [https://qart.futureai.me](https://qart.futureai.me)
 
