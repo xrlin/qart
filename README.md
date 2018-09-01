@@ -52,8 +52,7 @@ Read the godoc for more usages.
 
 ## DemoApp
 
-[https://qart.futureai.me](https://qart.futureai.me)
-
+[https://xrlin.github.io/qart-web](https://xrlin.github.io/qart-web
 ## Examples
 
 <p>
