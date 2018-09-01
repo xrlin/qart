@@ -48,7 +48,7 @@ imgBytes := q.ImageData(pointWidth)
 
 ```
 
-Read the godoc for more usage.
+Read the godoc for more usages.
 
 ## DemoApp
 
